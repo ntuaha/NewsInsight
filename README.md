@@ -10,6 +10,11 @@ NewsInsight
 	```bash
 	$ python ./src/extract/read.py 
 	```
+2. 建立資料表，準備做分析資料表
+
+	```bash
+	$ psql -d library -f ./sql/feature.sql
+	```	
 
 ## 資料格式
 
