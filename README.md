@@ -3,7 +3,13 @@ NewsInsight
 
 尋找新聞中間隱藏的訊息
 
+## 執行流程
 
+1. 建立資料表，讀入新聞資訊
+
+	```bash
+	$ python ./src/extract/read.py 
+	```
 
 ## 資料格式
 

@@ -6,7 +6,7 @@ import re
 
 #處理掉unicode 和 str 在ascii上的問題
 import sys 
-#import os
+import os
 import psycopg2
 #import datetime
 #import calendar
@@ -33,7 +33,8 @@ class READSITE:
 	port=""
 	conn = None
 	table = "cnyes"
-	conn = None
+	cur = None
+
 
 	def __init__(self,website,filepath):
 		self.address = website
@@ -45,7 +46,8 @@ class READSITE:
 		self.port =f.readline()[:-1]
 		f.close()
 
-	def rebuildTable():
+	#建立更新資料庫
+	def rebuildTable(self,sql):
 		print '執行重建Table'
 		os.system('psql -d %s -f %s'%(self.database,sql))
 
@@ -57,17 +59,27 @@ class READSITE:
 		r = self.opener.open(self.address)
 		self.content = r.read()		
 		r.close()
-
+	#啟用DB
 	def startDB(self):
 		self.conn = psycopg2.connect(database=self.database, user=self.user, password=self.password, host=self.host, port=self.port)
 
+	#結束DB
 	def endDB(self):	
 		self.conn.close()
+
+	def insertDB(self,data):
+		data = (self.table,) + data
+		sql = "INSERT INTO %s (link,type,title,info,content,author,datetime) VALUES ('%s','%s','%s','%s','%s','%s','%s');"%(data)
+		print sql
+		#寫入要commit才能看見
+		self.cur.execute(sql)
+		self.conn.commit()
 
 	def parse(self):
 		page = html.fromstring(self.content)
 		i = 0
-		cur = self.conn.cursor()	
+		self.startDB()
+		self.cur = self.conn.cursor()	
 		for link in page.xpath('//*[@id="container"]//*[@class="list_1 bd_dbottom"]//li/a'):			
 			datatime = link.xpath('../span')[0].text
 			typ = link.xpath('../strong/a')[0].text.translate({ord(i):None for i in '[]'})
@@ -81,9 +93,11 @@ class READSITE:
 			l = urllib.quote(address.encode('utf-8'),safe=':/?=')		
 
 			(author,datetime,title,info,fulltext) = self.read(l,typ)
-			sql = "INSERT INTO "
+			self.insertDB((address,typ,title,info,fulltext,author,datetime))
 			#break
-		cur.close()
+		self.cur.close()
+		self.endDB()
+		print "Done! We gather %s news during this execution."% i
 
 
 	def read(self,address,category):			
@@ -103,14 +117,15 @@ class READSITE:
 				author = "新聞中心"
 			else:
 				author = re.match(u".+記者(\w+)\W+.+",info,re.U).group(1)
-			print author
-
-			#print "%04d-%02d-%02d %02d:%02d"%(int(year),int(month),int(day),int(hour),int(mins))
+			print "author:%s "%author
+		
 			article = page.xpath('//*[@id="newsText"]/p')
 			fulltext =''
+			text = []
 			for a in article:
 				if a.text is not None:
-					fulltext = fulltext + "\n"+a.text
+					text.append(a.text)
+			fulltext = "\n".join(text)
 			print "title:%s\n gg:%s\n article:\n%s\n"%(title,info,fulltext)
 			print "\n\n\n"
 			return (author,datetime,title,info,fulltext)
