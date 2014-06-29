@@ -14,7 +14,7 @@ import psycopg2
 #import math
 #from time import mktime as mktime
 import cookielib, urllib2,urllib
-from lxml import html
+from lxml import html,etree
 
 
 reload(sys) 
@@ -41,29 +41,32 @@ class READSITE:
 	def parse(self):
 		page = html.fromstring(self.content)
 		i = 0
-		for link in page.xpath('//*[@id="container"]//*[@class="list_1 bd_dbottom"]//li/a'):
+		for link in page.xpath('//*[@id="container"]//*[@class="list_1 bd_dbottom"]//li/a'):			
+			datatime = link.xpath('../span')[0].text
+			typ = link.xpath('../strong/a')[0].text.translate({ord(i):None for i in '[]'})
+			print "type: %s datatime: %s"%(typ,datatime)
 			i=i+1
-			print "%d Name: %s URL: %s"%(i,link.text,link.get("href"))
-			l = urllib.quote(link.get("href").encode('utf-8'),safe=':/?=')			
-			self.read(l)
+			address = link.get("href")
+			print "%d Name: %s URL: %s"%(i,link.text,address)
+			#補上某些網址不齊
+			if address[0:4] != 'http':
+				print address[0:4]
+				address = 'http://news.cnyes.com/'+address
+			l = urllib.quote(address.encode('utf-8'),safe=':/?=')		
+
+			self.read(l,typ)
 
 
-	def read(self,address):			
+	def read(self,address,category):			
 		try:
 			print address
 			r = self.opener.open(address)
 			
 			page = html.fromstring(r.read())		
 			r.close()
-			
-			#for title in page.xpath('//*[@class="newsContent bg_newsPage_Lblue"]/h1'):
-			#	print title.text
 			title = page.xpath('//*[@class="newsContent bg_newsPage_Lblue"]/h1')[0].text
 			print title
-			#(author,time) = page.xpath('//*[@class="newsContent bg_newsPage_Lblue"]/span[@class="info"]')[0].text.split("　　")
 			info = page.xpath('//*[@class="newsContent bg_newsPage_Lblue"]/span[@class="info"]')[0].text
-			#print author
-			#print time
 			print info
 			article = page.xpath('//*[@id="newsText"]/p')
 			fulltext =''
