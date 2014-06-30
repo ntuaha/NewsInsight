@@ -10,10 +10,11 @@ NewsInsight
 	```bash
 	$ python ./src/extract/read.py 
 	```
-2. 建立資料表，準備做分析資料表
+2. 建立資料表，準備做分析資料表,可已經擁有特定字詞的字串寫入
 
 	```bash
 	$ psql -d library -f ./sql/feature.sql
+	$ psql -d library -f ./sql/findfeature.sql
 	```	
 
 ## 資料格式
