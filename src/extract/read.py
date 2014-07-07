@@ -8,7 +8,7 @@ import re
 import sys 
 import os
 import psycopg2
-#import datetime
+import datetime
 #import calendar
 #import csv
 #import math
@@ -54,8 +54,8 @@ class READSITE:
 	def listLink(self):
 		self.cj = cookielib.CookieJar()
 		self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cj))
-		#self.opener.addheaders = [('Host', 'news.cnyes.com')]
-		#self.opener.addheaders = [('User-agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.153 Safari/537.36')]
+		self.opener.addheaders = [('Host', 'news.cnyes.com')]
+		self.opener.addheaders = [('User-agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.153 Safari/537.36')]
 		r = self.opener.open(self.address)
 		self.content = r.read()		
 		r.close()
@@ -80,20 +80,25 @@ class READSITE:
 		i = 0
 		self.startDB()
 		self.cur = self.conn.cursor()	
-		for link in page.xpath('//*[@id="container"]//*[@class="list_1 bd_dbottom"]//li/a'):			
-			datatime = link.xpath('../span')[0].text
-			typ = link.xpath('../strong/a')[0].text.translate({ord(i):None for i in '[]'})
-			print "type: %s datatime: %s"%(typ,datatime)
-			i=i+1
-			address = link.get("href")
-			print "%d Name: %s URL: %s"%(i,link.text,address)
-			#補上某些網址不齊
-			if address[0:4] != 'http':				
-				address = 'http://news.cnyes.com/'+address
-			l = urllib.quote(address.encode('utf-8'),safe=':/?=')		
+		for link in page.xpath('//*[@id="container"]//*[@class="list_1 bd_dbottom"]//li/a'):	
+			try:		
+				datatime = link.xpath('../span')[0].text
+				typ = link.xpath('../strong/a')[0].text.translate({ord(i):None for i in '[]'})
+				print "type: %s datatime: %s"%(typ,datatime)
+				i=i+1
+				address = link.get("href")
+				print "%d Name: %s URL: %s"%(i,link.text,address)
+				#補上某些網址不齊
+				if address[0:4] != 'http':				
+					address = 'http://news.cnyes.com/'+address
+				l = urllib.quote(address.encode('utf-8'),safe=':/?=')		
 
-			(author,datetime,title,info,fulltext) = self.read(l,typ)
-			self.insertDB((address,typ,title,info,fulltext,author,datetime))
+				(author,datetime,title,info,fulltext) = self.read(l,typ)
+				self.insertDB((address,typ,title,info,fulltext,author,datetime))
+			except Exception as e:
+				print e
+
+
 			#break
 		self.cur.close()
 		self.endDB()
@@ -115,8 +120,12 @@ class READSITE:
 			datetime = "%s-%s-%s %s:%s"%(year,month,day,hour,mins)
 			if re.match(u"鉅亨網新聞中心",info,re.U) is not None:
 				author = "新聞中心"
+			elif re.match(u"鉅亨台北資料中心",info,re.U) is not None:
+				author = "台北資料中心"
 			else:
 				author = re.match(u".+記者(\w+)\W+.+",info,re.U).group(1)
+				if author is None:
+					author = re.match(u"鉅亨網編譯(\w+)\W+.+",info,re.U).group(1)
 			print "author:%s "%author
 		
 			article = page.xpath('//*[@id="newsText"]/p')
@@ -134,8 +143,25 @@ class READSITE:
 		
 
 if __name__ == '__main__':
+	"""
 	worker = READSITE('http://news.cnyes.com/tw_bank/list.shtml','../../link.info')
 	worker.rebuildTable('../../sql/cnYes.sql')
 	worker.listLink()
 	worker.parse()
+	"""
+	#http://news.cnyes.com/tw_bank/sonews_2014010120140708_1.htm
+	#for month in xrange(1,7):
+	start_dt =  datetime.datetime(2014,1,1)
+	end_dt = datetime.datetime(2014,6,30)
+	while (start_dt != end_dt ):
+		start_dt_s = start_dt.strftime("%Y%m%d")
+		start_dt  = start_dt+datetime.timedelta(days=1)
+		print start_dt
+		#print 'http://news.cnyes.com/tw_bank/sonews_%s%s_1.htm'%(start_dt,end_dt)
+		print 'http://news.cnyes.com/fx_liveanal/sonews_%s%s_1.htm'%(start_dt_s,start_dt_s)
+		worker = READSITE('http://news.cnyes.com/fx_liveanal/sonews_%s%s_1.htm'%(start_dt_s,start_dt_s),'../../link.info')
+		if start_dt == datetime.datetime(2014,1,1):
+			worker.rebuildTable('../../sql/cnYes.sql')
+		worker.listLink()
+		worker.parse()
 
