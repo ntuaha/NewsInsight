@@ -59,6 +59,26 @@ class READSITE:
 		r = self.opener.open(self.address)
 		self.content = r.read()		
 		r.close()
+		page = html.fromstring(self.content)
+		for link in page.xpath('//*[@id="listArea"]/ul[11]/ul[1]/div/*'):	
+			#print link.text
+			#print self.address[0:-5]+link.text+".htm"
+			self.readLink(self.address[0:-5]+link.text+".htm")
+
+		
+
+	def readLink(self,address):
+		#self.cj = cookielib.CookieJar()
+		#self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cj))
+		#self.opener.addheaders = [('Host', 'news.cnyes.com')]
+		#self.opener.addheaders = [('User-agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.153 Safari/537.36')]
+		print address
+		r = self.opener.open(address)
+		self.content = r.read()		
+		r.close()
+		self.parse()
+
+
 	#啟用DB
 	def startDB(self):
 		self.conn = psycopg2.connect(database=self.database, user=self.user, password=self.password, host=self.host, port=self.port)
@@ -70,33 +90,39 @@ class READSITE:
 	def insertDB(self,data):
 		data = (self.table,) + data
 		sql = "INSERT INTO %s (link,type,title,info,content,author,datetime) VALUES ('%s','%s','%s','%s','%s','%s','%s');"%(data)
-		print sql
+		#print sql
 		#寫入要commit才能看見
 		self.cur.execute(sql)
 		self.conn.commit()
 
 	def parse(self):
 		page = html.fromstring(self.content)
+
 		i = 0
 		self.startDB()
+
 		self.cur = self.conn.cursor()	
 		for link in page.xpath('//*[@id="container"]//*[@class="list_1 bd_dbottom"]//li/a'):	
-			try:		
-				datatime = link.xpath('../span')[0].text
-				typ = link.xpath('../strong/a')[0].text.translate({ord(i):None for i in '[]'})
-				print "type: %s datatime: %s"%(typ,datatime)
-				i=i+1
-				address = link.get("href")
-				print "%d Name: %s URL: %s"%(i,link.text,address)
-				#補上某些網址不齊
-				if address[0:4] != 'http':				
-					address = 'http://news.cnyes.com/'+address
-				l = urllib.quote(address.encode('utf-8'),safe=':/?=')		
+			#try:	
+			if link.text == "下一頁" or link.text =="上一頁":
+				continue
+			#print link.text	
+			#print link.xpath('../span')
+			datatime = link.xpath('../span')[0].text
+			typ = link.xpath('../strong/a')[0].text.translate({ord(i):None for i in '[]'})
+			#print "type: %s datatime: %s"%(typ,datatime)
+			i=i+1
+			address = link.get("href")
+			#print "%d Name: %s URL: %s"%(i,link.text,address)
+			#補上某些網址不齊
+			if address[0:4] != 'http':				
+				address = 'http://news.cnyes.com/'+address
+			l = urllib.quote(address.encode('utf-8'),safe=':/?=')		
 
-				(author,datetime,title,info,fulltext) = self.read(l,typ)
-				self.insertDB((address,typ,title,info,fulltext,author,datetime))
-			except Exception as e:
-				print e
+			(author,datetime,title,info,fulltext) = self.read(l,typ)
+			self.insertDB((address,typ,title,info,fulltext,author,datetime))
+			#except Exception as e:
+			#	print e
 
 
 			#break
@@ -107,14 +133,14 @@ class READSITE:
 
 	def read(self,address,category):			
 		try:
-			print address
+			#print address
 			r = self.opener.open(address)
 			
 			page = html.fromstring(r.read())		
 			r.close()
 			title = page.xpath('//*[@class="newsContent bg_newsPage_Lblue"]/h1')[0].text
 			info = page.xpath('//*[@class="newsContent bg_newsPage_Lblue"]/span[@class="info"]')[0].text
-			print info
+			#print info
 			
 			year,month,day,hour,mins = re.match(".*(\d{4})-(\d{2})-(\d{2})\W*(\d{2}):(\d{2})", info,re.U).group(1,2,3,4,5)
 			datetime = "%s-%s-%s %s:%s"%(year,month,day,hour,mins)
@@ -126,7 +152,7 @@ class READSITE:
 				author = re.match(u".+記者(\w+)\W+.+",info,re.U).group(1)
 				if author is None:
 					author = re.match(u"鉅亨網編譯(\w+)\W+.+",info,re.U).group(1)
-			print "author:%s "%author
+			#print "author:%s "%author
 		
 			article = page.xpath('//*[@id="newsText"]/p')
 			fulltext =''
@@ -135,8 +161,8 @@ class READSITE:
 				if a.text is not None:
 					text.append(a.text)
 			fulltext = "\n".join(text)
-			print "title:%s\n gg:%s\n article:\n%s\n"%(title,info,fulltext)
-			print "\n\n\n"
+			#print "title:%s\n gg:%s\n article:\n%s\n"%(title,info,fulltext)
+			#print "\n\n\n"
 			return (author,datetime,title,info,fulltext)
 		except Exception as e:
 			print e
@@ -153,15 +179,16 @@ if __name__ == '__main__':
 	#for month in xrange(1,7):
 	start_dt =  datetime.datetime(2014,1,1)
 	end_dt = datetime.datetime(2014,6,30)
-	while (start_dt != end_dt ):
+	while (start_dt <= end_dt ):
 		start_dt_s = start_dt.strftime("%Y%m%d")
-		start_dt  = start_dt+datetime.timedelta(days=1)
-		print start_dt
+		end_dt_s = (start_dt+datetime.timedelta(days=6)).strftime("%Y%m%d")
+		start_dt  = start_dt+datetime.timedelta(days=7)
+		#print start_dt
 		#print 'http://news.cnyes.com/tw_bank/sonews_%s%s_1.htm'%(start_dt,end_dt)
-		print 'http://news.cnyes.com/fx_liveanal/sonews_%s%s_1.htm'%(start_dt_s,start_dt_s)
-		worker = READSITE('http://news.cnyes.com/fx_liveanal/sonews_%s%s_1.htm'%(start_dt_s,start_dt_s),'../../link.info')
+		#print 'http://news.cnyes.com/fx_liveanal/sonews_%s%s_1.htm'%(start_dt_s,start_dt_s)
+		worker = READSITE('http://news.cnyes.com/fx_liveanal/sonews_%s%s_1.htm'%(start_dt_s,end_dt_s),'../../link.info')
 		if start_dt == datetime.datetime(2014,1,1):
 			worker.rebuildTable('../../sql/cnYes.sql')
 		worker.listLink()
-		worker.parse()
+		#worker.parse()
 
