@@ -5,6 +5,13 @@ NewsInsight
 
 ## 執行流程
 
+
+0. 建立爬蟲目標位置
+
+	```bash
+	$ psql -d library -f ./sql/links.sql
+	```
+
 1. 建立資料表，讀入新聞資訊
 
 	```bash
