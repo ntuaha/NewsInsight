@@ -34,6 +34,7 @@ class READSITE:
 	conn = None
 	table = "cnyes"
 	cur = None
+	EMPTYNEWS = ("","","","","","")
 
 
 	def __init__(self,website,filepath):
@@ -116,11 +117,15 @@ class READSITE:
 			#print "%d Name: %s URL: %s"%(i,link.text,address)
 			#補上某些網址不齊
 			if address[0:4] != 'http':				
-				address = 'http://news.cnyes.com/'+address
+				address = 'http://news.cnyes.com'+address
+			#print "address: "+address
 			l = urllib.quote(address.encode('utf-8'),safe=':/?=')		
-
-			(author,datetime,title,info,fulltext) = self.read(l,typ)
-			self.insertDB((address,typ,title,info,fulltext,author,datetime))
+			#print "l: "+ l
+			#print "typ:" + typ
+			result = self.read(l,typ)
+			if result != self.EMPTYNEWS:
+				(author,datetime,title,info,fulltext) = result
+				self.insertDB((address,typ,title,info,fulltext,author,datetime))
 			#except Exception as e:
 			#	print e
 
@@ -132,40 +137,52 @@ class READSITE:
 
 
 	def read(self,address,category):			
-		try:
-			#print address
-			r = self.opener.open(address)
-			
-			page = html.fromstring(r.read())		
-			r.close()
-			title = page.xpath('//*[@class="newsContent bg_newsPage_Lblue"]/h1')[0].text
-			info = page.xpath('//*[@class="newsContent bg_newsPage_Lblue"]/span[@class="info"]')[0].text
-			#print info
-			
-			year,month,day,hour,mins = re.match(".*(\d{4})-(\d{2})-(\d{2})\W*(\d{2}):(\d{2})", info,re.U).group(1,2,3,4,5)
-			datetime = "%s-%s-%s %s:%s"%(year,month,day,hour,mins)
-			if re.match(u"鉅亨網新聞中心",info,re.U) is not None:
-				author = "新聞中心"
-			elif re.match(u"鉅亨台北資料中心",info,re.U) is not None:
-				author = "台北資料中心"
-			else:
-				author = re.match(u".+記者(\w+)\W+.+",info,re.U).group(1)
-				if author is None:
-					author = re.match(u"鉅亨網編譯(\w+)\W+.+",info,re.U).group(1)
-			#print "author:%s "%author
+		#try:
+		#print address
+		r = self.opener.open(address)		
+		page = html.fromstring(r.read())		
+		r.close()
+		if page.xpath('//*[@id="form1"]/div[2]/center/h2') is not None:
+			print page.xpath('//*[@id="form1"]/div[2]/center/h2')
+			if page.xpath('//*[@id="form1"]/div[2]/center/h2')[0].text == "頁面載入錯誤":
+				return self.EMPTYNEWS
 		
-			article = page.xpath('//*[@id="newsText"]/p')
-			fulltext =''
-			text = []
-			for a in article:
-				if a.text is not None:
-					text.append(a.text)
-			fulltext = "\n".join(text)
-			#print "title:%s\n gg:%s\n article:\n%s\n"%(title,info,fulltext)
-			#print "\n\n\n"
-			return (author,datetime,title,info,fulltext)
-		except Exception as e:
-			print e
+		title = page.xpath('//*[@class="newsContent bg_newsPage_Lblue"]/h1')[0].text
+		info = page.xpath('//*[@class="newsContent bg_newsPage_Lblue"]/span[@class="info"]')[0].text
+		#print info
+		
+		year,month,day,hour,mins = re.match(".*(\d{4})-(\d{2})-(\d{2})\W*(\d{2}):(\d{2})", info,re.U).group(1,2,3,4,5)
+		datetime = "%s-%s-%s %s:%s"%(year,month,day,hour,mins)
+		print info
+		if re.match(u"鉅亨網新聞中心",info,re.U) is not None:
+			author = "新聞中心"
+		elif re.match(u"鉅亨台北資料中心",info,re.U) is not None:
+			author = "台北資料中心"
+		elif re.match(u"鉅亨網\W+.+",info,re.U) is not None:
+			author = ""
+
+		elif re.match(u".+記者(\w+)\W+.+",info,re.U) is not None:
+			author = re.match(u".+記者(\w+)\W+.+",info,re.U).group(1)
+		elif re.match(u"鉅亨網編譯(\w+)\W+.+",info,re.U) is not None:
+			author = re.match(u"鉅亨網編譯(\w+)\W+.+",info,re.U).group(1)
+		elif re.match(u"鉅亨網(\w+)\W+.+",info,re.U) is not None:
+			author = re.match(u"鉅亨網(\w+)\W+.+",info,re.U).group(1)			
+
+		#print "author:%s "%author
+	
+		article = page.xpath('//*[@id="newsText"]/p')
+		fulltext =''
+		text = []
+		for a in article:
+			if a.text is not None:
+				text.append(a.text)
+		fulltext = "\n".join(text).replace(u"'", u"''")
+	#	print fulltext
+		#print "title:%s\n gg:%s\n article:\n%s\n"%(title,info,fulltext)
+		#print "\n\n\n"
+		return (author,datetime,title,info,fulltext)
+		#except Exception as e:
+		#	print e
 		
 
 if __name__ == '__main__':
@@ -177,7 +194,9 @@ if __name__ == '__main__':
 	"""
 	#http://news.cnyes.com/tw_bank/sonews_2014010120140708_1.htm
 	#for month in xrange(1,7):
-	start_dt =  datetime.datetime(2014,1,1)
+
+	start_dt =  datetime.datetime(2014,4,23)
+	init_dt = start_dt
 	end_dt = datetime.datetime(2014,6,30)
 	while (start_dt <= end_dt ):
 		start_dt_s = start_dt.strftime("%Y%m%d")
@@ -187,8 +206,8 @@ if __name__ == '__main__':
 		#print 'http://news.cnyes.com/tw_bank/sonews_%s%s_1.htm'%(start_dt,end_dt)
 		#print 'http://news.cnyes.com/fx_liveanal/sonews_%s%s_1.htm'%(start_dt_s,start_dt_s)
 		worker = READSITE('http://news.cnyes.com/fx_liveanal/sonews_%s%s_1.htm'%(start_dt_s,end_dt_s),'../../link.info')
-		if start_dt == datetime.datetime(2014,1,1):
-			worker.rebuildTable('../../sql/cnYes.sql')
+		#if start_dt == init_dt:
+		#	worker.rebuildTable('../../sql/cnYes.sql')
 		worker.listLink()
 		#worker.parse()
 
