@@ -89,12 +89,16 @@ class READSITE:
 		self.conn.close()
 
 	def insertDB(self,data):
+
 		data = (self.table,) + data
-		sql = "INSERT INTO %s (link,type,title,info,content,author,datetime) VALUES ('%s','%s','%s','%s','%s','%s','%s');"%(data)
+		sql = "INSERT INTO %s (link,type,title,info,content,author,datetime,source) VALUES ('%s','%s','%s','%s','%s','%s','%s','%s');"%(data)
 		#print sql
 		#寫入要commit才能看見
-		self.cur.execute(sql)
-		self.conn.commit()
+		try:
+			self.cur.execute(sql)
+			self.conn.commit()
+		except Exception as e:
+			print e
 
 	def parse(self):
 		page = html.fromstring(self.content)
@@ -110,7 +114,10 @@ class READSITE:
 			#print link.text	
 			#print link.xpath('../span')
 			datatime = link.xpath('../span')[0].text
-			typ = link.xpath('../strong/a')[0].text.translate({ord(i):None for i in '[]'})
+			#print "type: "+link.xpath('../strong/a')[0].text
+			#typ = link.xpath('../strong/a')[0].text.translate({ord(i):None for i in '[]'})
+			typ = link.xpath('../strong/a')[0].text[1:-1]
+			#print typ
 			#print "type: %s datatime: %s"%(typ,datatime)
 			i=i+1
 			address = link.get("href")
@@ -124,8 +131,10 @@ class READSITE:
 			#print "typ:" + typ
 			result = self.read(l,typ)
 			if result != self.EMPTYNEWS:
-				(author,datetime,title,info,fulltext) = result
-				self.insertDB((address,typ,title,info,fulltext,author,datetime))
+				(author,datetime,title,info,fulltext,source) = result
+				#for i in result:
+				#	print i
+				self.insertDB((address,typ,title,info,fulltext,author,datetime,source))
 			#except Exception as e:
 			#	print e
 
@@ -139,37 +148,49 @@ class READSITE:
 	def read(self,address,category):			
 		#try:
 		#print address
-		r = self.opener.open(address)		
-		page = html.fromstring(r.read())		
+		r = self.opener.open(address)	
+		page = html.fromstring(r.read().decode('utf-8'))				
 		r.close()
-		if page.xpath('//*[@id="form1"]/div[2]/center/h2') is not None:
-			print page.xpath('//*[@id="form1"]/div[2]/center/h2')
-			if page.xpath('//*[@id="form1"]/div[2]/center/h2')[0].text == "頁面載入錯誤":
-				return self.EMPTYNEWS
+		#處理頁面錯誤問題
+		if len(page.xpath('//*[@id="form1"]//center/h2'))!=0:		
+			return self.EMPTYNEWS
 		
+		#extract title from content
 		title = page.xpath('//*[@class="newsContent bg_newsPage_Lblue"]/h1')[0].text
+		#extract info from content
 		info = page.xpath('//*[@class="newsContent bg_newsPage_Lblue"]/span[@class="info"]')[0].text
 		#print info
 		
+		#extract datetime from info
 		year,month,day,hour,mins = re.match(".*(\d{4})-(\d{2})-(\d{2})\W*(\d{2}):(\d{2})", info,re.U).group(1,2,3,4,5)
 		datetime = "%s-%s-%s %s:%s"%(year,month,day,hour,mins)
-		print info
+		#print "info: "+ info
+
+		#extract author from info
 		if re.match(u"鉅亨網新聞中心",info,re.U) is not None:
 			author = "新聞中心"
 		elif re.match(u"鉅亨台北資料中心",info,re.U) is not None:
 			author = "台北資料中心"
 		elif re.match(u"鉅亨網\W+.+",info,re.U) is not None:
 			author = ""
-
 		elif re.match(u".+記者(\w+)\W+.+",info,re.U) is not None:
 			author = re.match(u".+記者(\w+)\W+.+",info,re.U).group(1)
-		elif re.match(u"鉅亨網編譯(\w+)\W+.+",info,re.U) is not None:
-			author = re.match(u"鉅亨網編譯(\w+)\W+.+",info,re.U).group(1)
+		elif re.match(u".+編譯(\w+)\W+.+",info,re.U) is not None:
+			author = re.match(u".+網編譯(\w+)\W+.+",info,re.U).group(1)
 		elif re.match(u"鉅亨網(\w+)\W+.+",info,re.U) is not None:
-			author = re.match(u"鉅亨網(\w+)\W+.+",info,re.U).group(1)			
-
+			author = re.match(u"鉅亨網(\w+)\W+.+",info,re.U).group(1)
+		elif re.match(u"(\w+)\W+.+",info,re.U) is not None:			
+			author = re.match(u"(\w+)\W+.+",info,re.U).group(1)
 		#print "author:%s "%author
-	
+
+		#extract source from info 
+		source = ""
+		pattern = re.match(u".+\W+\(來源：(.+)\)\W+.+",info,re.U) 
+		if pattern is not None:
+			source = pattern.group(1)
+		#print "source: "+source
+		
+		#extract fulltext from content
 		article = page.xpath('//*[@id="newsText"]/p')
 		fulltext =''
 		text = []
@@ -180,7 +201,9 @@ class READSITE:
 	#	print fulltext
 		#print "title:%s\n gg:%s\n article:\n%s\n"%(title,info,fulltext)
 		#print "\n\n\n"
-		return (author,datetime,title,info,fulltext)
+
+		#return infromation in the page
+		return (author,datetime,title,info,fulltext,source)
 		#except Exception as e:
 		#	print e
 		
@@ -194,20 +217,29 @@ if __name__ == '__main__':
 	"""
 	#http://news.cnyes.com/tw_bank/sonews_2014010120140708_1.htm
 	#for month in xrange(1,7):
-
-	start_dt =  datetime.datetime(2014,4,23)
-	init_dt = start_dt
-	end_dt = datetime.datetime(2014,6,30)
-	while (start_dt <= end_dt ):
-		start_dt_s = start_dt.strftime("%Y%m%d")
-		end_dt_s = (start_dt+datetime.timedelta(days=6)).strftime("%Y%m%d")
-		start_dt  = start_dt+datetime.timedelta(days=7)
-		#print start_dt
-		#print 'http://news.cnyes.com/tw_bank/sonews_%s%s_1.htm'%(start_dt,end_dt)
-		#print 'http://news.cnyes.com/fx_liveanal/sonews_%s%s_1.htm'%(start_dt_s,start_dt_s)
-		worker = READSITE('http://news.cnyes.com/fx_liveanal/sonews_%s%s_1.htm'%(start_dt_s,end_dt_s),'../../link.info')
-		#if start_dt == init_dt:
-		#	worker.rebuildTable('../../sql/cnYes.sql')
-		worker.listLink()
-		#worker.parse()
+	#type_list =  ["INDEX","fx_liveanal","macro"]
+	type_list =  ["macro"]
+	#rebuildTable = True
+	rebuildTable = False
+	for item in type_list:
+		print item
+		start_dt =  datetime.datetime(2014,4,23)
+		init_dt = start_dt
+		end_dt = datetime.datetime(2014,6,30)
+		
+		while (start_dt <= end_dt ):
+			start_dt_s = start_dt.strftime("%Y%m%d")
+			end_dt_s = (start_dt+datetime.timedelta(days=6)).strftime("%Y%m%d")
+			
+			#print start_dt
+			#print 'http://news.cnyes.com/tw_bank/sonews_%s%s_1.htm'%(start_dt,end_dt)
+			#print 'http://news.cnyes.com/fx_liveanal/sonews_%s%s_1.htm'%(start_dt_s,start_dt_s)
+			print 'http://news.cnyes.com/%s/sonews_%s%s_1.htm'%(item,start_dt_s,end_dt_s)
+			worker = READSITE('http://news.cnyes.com/%s/sonews_%s%s_1.htm'%(item,start_dt_s,end_dt_s),'../../link.info')
+			if rebuildTable == True:
+				worker.rebuildTable('../../sql/cnYes.sql')
+				rebuildTable = False
+			worker.listLink()
+			start_dt  = start_dt+datetime.timedelta(days=7)
+			#worker.parse()
 
