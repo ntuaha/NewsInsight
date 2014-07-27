@@ -20,6 +20,44 @@ from lxml import html,etree
 reload(sys) 
 sys.setdefaultencoding('utf8') 
 
+class MYDB:
+	database=""
+	user=""
+	password=""
+	host=""
+	port=""
+	conn = None
+	cur = None
+	def __init__(self,filepath):
+		f = open(filepath,'r')
+		self.database = f.readline()[:-1]
+		self.user = f.readline()[:-1]
+		self.password = f.readline()[:-1]
+		self.host = f.readline()[:-1]
+		self.port =f.readline()[:-1]
+		f.close()
+		self.startDB()
+	#啟用DB
+	def startDB(self):
+		self.conn = psycopg2.connect(database=self.database, user=self.user, password=self.password, host=self.host, port=self.port)
+		self.cur = self.conn.cursor()	
+
+	def checkRowNews(self,t,s):
+		sql = "SELECT count(*) from crawler_record where data_dt='%s' and source='%s' "%(t,s)
+		print sql
+		self.cur.execute(sql)
+		rows = self.cur.fetchall()
+		if rows[0][0] > 0:
+			return True
+		else:
+			return False
+
+
+	#結束DB
+	def endDB(self):	
+		self.conn.close()
+
+
 class READSITE:
 	address = None
 	content = None
@@ -208,19 +246,32 @@ class READSITE:
 		#	print e
 		
 
+
+
+
+
 if __name__ == '__main__':
-	"""
-	worker = READSITE('http://news.cnyes.com/tw_bank/list.shtml','../../link.info')
-	worker.rebuildTable('../../sql/cnYes.sql')
-	worker.listLink()
-	worker.parse()
-	"""
 	#http://news.cnyes.com/tw_bank/sonews_2014010120140708_1.htm
 	#for month in xrange(1,7):
 	#type_list =  ["INDEX","fx_liveanal","macro"]
 	type_list =  ["macro"]
 	#rebuildTable = True
 	rebuildTable = False
+
+# 確認時間
+	year = 2014
+	month = 1
+	day = 1
+	check_dt = datetime.datetime(year,month,day).strftime("%Y-%m-%d")
+
+	ahaDB = MYDB('../../link.info')
+	if ahaDB.checkRowNews(check_dt,'cnyes') == True:
+		print "NEXT"
+	else:
+		print "GOGO"
+	ahaDB.endDB()
+
+'''
 	for item in type_list:
 		print item
 		start_dt =  datetime.datetime(2014,4,23)
@@ -242,4 +293,4 @@ if __name__ == '__main__':
 			worker.listLink()
 			start_dt  = start_dt+datetime.timedelta(days=7)
 			#worker.parse()
-
+'''
