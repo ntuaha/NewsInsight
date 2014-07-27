@@ -42,15 +42,42 @@ class MYDB:
 		self.conn = psycopg2.connect(database=self.database, user=self.user, password=self.password, host=self.host, port=self.port)
 		self.cur = self.conn.cursor()	
 
-	def checkRowNews(self,t,s):
-		sql = "SELECT count(*) from crawler_record where data_dt='%s' and source='%s' "%(t,s)
+	def isRawNewsExist(self,t,s):
+		sql = "SELECT count(*) from crawler_record where data_dt='%s' and source='%s' and end_time is not NULL"%(t,s)
 		print sql
 		self.cur.execute(sql)
 		rows = self.cur.fetchall()
-		if rows[0][0] > 0:
+		if rows[0][0] >0:
 			return True
 		else:
 			return False
+
+	def insertStartInfo(self,t,s):
+		# Clear OLD
+		sql = "DELETE from crawler_record where data_dt='%s' and source='%s';"%(t,s)
+		self.cur.execute(sql)
+		self.conn.commit()
+		sql = "DELETE from %s where date_trunc('day',datetime) = '%s';"%(s,t)
+		self.cur.execute(sql)
+		self.conn.commit()
+		# Insert Info
+		sql  = "INSERT INTO crawler_record (source,data_dt,start_time) VALUES ('%s','%s',NOW())"%(s,t)
+		self.cur.execute(sql)
+		self.conn.commit()
+
+	def insertEndInfo(self,t,s):
+		sql  = "SELECT count(*) from %s where date_trunc('day',datetime) = '%s';"%(s,t)
+		self.cur.execute(sql)
+		data_num  = self.cur.fetchall()[0][0]
+		if data_num !=0:
+			sql  = "UPDATE crawler_record SET end_time=NOW(),newscount = %d ,process_time = NOW()-start_time, avg_speed = date_trunc('sec',NOW()-start_time)/%d  where data_dt='%s' and source='%s';"%(data_num,data_num,t,s)
+		else:
+			sql = "UPDATE crawler_record SET end_time=NOW(),newscount = %d ,process_time = NOW()-start_time  where data_dt='%s' and source='%s';"%(data_num,t,s)
+		print sql
+		self.cur.execute(sql)
+		self.conn.commit()
+		return True
+
 
 
 	#結束DB
@@ -99,9 +126,10 @@ class READSITE:
 		self.content = r.read()		
 		r.close()
 		page = html.fromstring(self.content)
+		#print self.content
 		for link in page.xpath('//*[@id="listArea"]/ul[11]/ul[1]/div/*'):	
-			#print link.text
-			#print self.address[0:-5]+link.text+".htm"
+			print link.text
+			print self.address[0:-5]+link.text+".htm"
 			self.readLink(self.address[0:-5]+link.text+".htm")
 
 		
@@ -159,7 +187,7 @@ class READSITE:
 			#print "type: %s datatime: %s"%(typ,datatime)
 			i=i+1
 			address = link.get("href")
-			#print "%d Name: %s URL: %s"%(i,link.text,address)
+			print "%d Name: %s URL: %s"%(i,link.text,address)
 			#補上某些網址不齊
 			if address[0:4] != 'http':				
 				address = 'http://news.cnyes.com'+address
@@ -246,6 +274,14 @@ class READSITE:
 		#	print e
 		
 
+def mainprocess(d):
+	type_list =  ["INDEX","fx_liveanal","macro"]
+	d_s = d.strftime("%Y%m%d")
+	for item in type_list:
+		print 'http://news.cnyes.com/%s/sonews_%s%s_1.htm'%(item,d_s,d_s)
+		worker = READSITE('http://news.cnyes.com/%s/sonews_%s%s_1.htm'%(item,d_s,d_s),'../../link.info')
+		worker.listLink()
+
 
 
 
@@ -254,21 +290,33 @@ if __name__ == '__main__':
 	#http://news.cnyes.com/tw_bank/sonews_2014010120140708_1.htm
 	#for month in xrange(1,7):
 	#type_list =  ["INDEX","fx_liveanal","macro"]
-	type_list =  ["macro"]
+	#type_list =  ["macro"]
 	#rebuildTable = True
 	rebuildTable = False
 
 # 確認時間
 	year = 2014
-	month = 1
-	day = 1
-	check_dt = datetime.datetime(year,month,day).strftime("%Y-%m-%d")
+	month = 3
+	day = 2
+	source = 'cnyes'
+	check_dt = datetime.datetime(year,month,day)
+	check_dt_s = check_dt.strftime("%Y-%m-%d")
 
 	ahaDB = MYDB('../../link.info')
-	if ahaDB.checkRowNews(check_dt,'cnyes') == True:
+	#if ahaDB.isRawNewsExist(check_dt_s,source) == True:
+	if False == True:
 		print "NEXT"
 	else:
 		print "GOGO"
+		ahaDB.insertStartInfo(check_dt_s,source)
+		mainprocess(check_dt)
+		if ahaDB.insertEndInfo(check_dt_s,source) == True:
+			print "GOOD %s"%check_dt
+
+
+
+
+
 	ahaDB.endDB()
 
 '''
