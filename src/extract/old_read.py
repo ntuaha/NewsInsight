@@ -1,91 +1,5 @@
-# -*- coding: utf-8 -*- 
-
-
-
-import re
-
-#處理掉unicode 和 str 在ascii上的問題
-import sys 
-import os
-import psycopg2
-import datetime
-#import calendar
-#import csv
-#import math
-#from time import mktime as mktime
-import cookielib, urllib2,urllib
-from lxml import html,etree
-import StringIO
-
-reload(sys) 
-sys.setdefaultencoding('utf8') 
-
-class MYDB:
-	database=""
-	user=""
-	password=""
-	host=""
-	port=""
-	conn = None
-	cur = None
-	def __init__(self,filepath):
-		f = open(filepath,'r')
-		self.database = f.readline()[:-1]
-		self.user = f.readline()[:-1]
-		self.password = f.readline()[:-1]
-		self.host = f.readline()[:-1]
-		self.port =f.readline()[:-1]
-		f.close()
-		self.startDB()
-	#啟用DB
-	def startDB(self):
-		self.conn = psycopg2.connect(database=self.database, user=self.user, password=self.password, host=self.host, port=self.port)
-		self.cur = self.conn.cursor()	
-
-	def isRawNewsExist(self,t,s):
-		sql = "SELECT count(*) from crawler_record where data_dt='%s' and source='%s' and end_time is not NULL"%(t,s)
-		print sql
-		self.cur.execute(sql)
-		rows = self.cur.fetchall()
-		if rows[0][0] >0:
-			return True
-		else:
-			return False
-
-	def insertStartInfo(self,t,s):
-		# Clear OLD
-		sql = "DELETE from crawler_record where data_dt='%s' and source='%s';"%(t,s)
-		self.cur.execute(sql)
-		self.conn.commit()
-		sql = "DELETE from %s where date_trunc('day',datetime) = '%s';"%(s,t)
-		self.cur.execute(sql)
-		self.conn.commit()
-		# Insert Info
-		sql  = "INSERT INTO crawler_record (source,data_dt,start_time) VALUES ('%s','%s',NOW())"%(s,t)
-		self.cur.execute(sql)
-		self.conn.commit()
-
-	def insertEndInfo(self,t,s):
-		sql  = "SELECT count(*) from %s where date_trunc('day',datetime) = '%s';"%(s,t)
-		self.cur.execute(sql)
-		data_num  = self.cur.fetchall()[0][0]
-		if data_num !=0:
-			sql  = "UPDATE crawler_record SET end_time=NOW(),newscount = %d ,process_time = NOW()-start_time, avg_speed = date_trunc('sec',NOW()-start_time)/%d  where data_dt='%s' and source='%s';"%(data_num,data_num,t,s)
-		else:
-			sql = "UPDATE crawler_record SET end_time=NOW(),newscount = %d ,process_time = NOW()-start_time  where data_dt='%s' and source='%s';"%(data_num,t,s)
-		print sql
-		self.cur.execute(sql)
-		self.conn.commit()
-		return True
-
-
-
-	#結束DB
-	def endDB(self):	
-		self.conn.close()
-
-
 class READSITE:
+	address = None
 	content = None
 	cj = None
 	opener = None
@@ -101,7 +15,8 @@ class READSITE:
 	EMPTYNEWS = ("","","","","","")
 
 
-	def __init__(self,filepath):
+	def __init__(self,website,filepath):
+		self.address = website
 		f = open(filepath,'r')
 		self.database = f.readline()[:-1]
 		self.user = f.readline()[:-1]
@@ -138,53 +53,21 @@ class READSITE:
 		#self.opener.addheaders = [('User-agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.153 Safari/537.36')]
 
 
-
-
-		
-		self.startDB()
-		self.cur = self.conn.cursor()	
-
 		url = 'http://news.cnyes.com/Ajax.aspx?Module=GetRollNews'
-		value = urllib.urlencode( {'date' : d.strftime("%Y%m%d")})
-
-		#data = urllib.urlencode(values)
-		#req = urllib2.open(url, value)
-		response = urllib2.build_opener().open(url,value)
+		values = {'date' : d.strftime("%Y%m%d")}
+		data = urllib.urlencode(values)
+		req = urllib2.Request(url, data)
+		response = urllib2.urlopen(req)
 		the_page = response.read()
 		response.close()
-		#print the_page
+		print the_page
 
-		#page = html.fromstring(the_page)
-		
-		page = etree.parse(StringIO.StringIO(the_page))
-		print len(page.xpath('/NewDataSet/Table1'))
-		#print page
+		page = html.fromstring(the_page)
 		n = 0 
-		for link in page.xpath('/NewDataSet/Table1'):
+		for link in page.xpath('//NewDataSet/Table1'):
 			n += 1
 			print n
-			title = link.xpath('./NEWSTITLE')[0].text
-			print "title: %s"%title
-			ll = 'http://news.cnyes.com'+link.xpath('./SNewsSavePath')[0].text
-			print "link: %s"%ll
-			typ = link.xpath('./ClassCName')[0].text
-			print "type: %s"%typ
-			time = d.strftime("%Y-%m-%d")+" "+link.xpath('./NewsTime')[0].text
-			print "time: %s\n\n"%time
-
-			result = self.read(ll)
-			if result != self.EMPTYNEWS:
-				(author,datetime,title,info,fulltext,source) = result
-				#for i in result:
-				#	print i
-				self.insertDB((ll,typ,title,info,fulltext,author,time,source))
-			#except Exception as e:
-			#	print e
-
-
-			#break
-		self.cur.close()
-		self.endDB()
+			title = link.xpath('./NEWSTITLE').
 
 
 
@@ -223,7 +106,7 @@ class READSITE:
 
 		data = (self.table,) + data
 		sql = "INSERT INTO %s (link,type,title,info,content,author,datetime,source) VALUES ('%s','%s','%s','%s','%s','%s','%s','%s');"%(data)
-		print sql
+		#print sql
 		#寫入要commit才能看見
 		try:
 			self.cur.execute(sql)
@@ -261,12 +144,10 @@ class READSITE:
 			#print "l: "+ l
 			#print "typ:" + typ
 			result = self.read(l,typ)
-			print "result" + result
 			if result != self.EMPTYNEWS:
 				(author,datetime,title,info,fulltext,source) = result
-				for i in result:
-					print i
-
+				#for i in result:
+				#	print i
 				self.insertDB((address,typ,title,info,fulltext,author,datetime,source))
 			#except Exception as e:
 			#	print e
@@ -278,14 +159,10 @@ class READSITE:
 		print "Done! We gather %s news during this execution."% i
 
 
-	def read(self,address):			
+	def read(self,address,category):			
 		#try:
-		print address
-		#r = self.opener.open(address)	
-		r = urllib2.build_opener().open(address)
-
-
-
+		#print address
+		r = self.opener.open(address)	
 		page = html.fromstring(r.read().decode('utf-8'))				
 		r.close()
 		#處理頁面錯誤問題
@@ -346,71 +223,13 @@ class READSITE:
 		
 
 def mainprocess(d):
-	#type_list =  ["INDEX","fx_liveanal","macro"]
+	type_list =  ["INDEX","fx_liveanal","macro"]
 	d_s = d.strftime("%Y%m%d")
-	#for item in type_list:
-	#print 'http://news.cnyes.com/%s/sonews_%s%s_1.htm'%(item,d_s,d_s)
-	worker = READSITE('../../link.info')
-	#worker.listLink()
-	worker.getFullNews(d)
-
-
-
-
-
-if __name__ == '__main__':
-	#http://news.cnyes.com/tw_bank/sonews_2014010120140708_1.htm
-	#for month in xrange(1,7):
-	#type_list =  ["INDEX","fx_liveanal","macro"]
-	#type_list =  ["macro"]
-	#rebuildTable = True
-	rebuildTable = False
-
-# 確認時間
-	year = 2014
-	month = 3
-	day = 2
-	source = 'cnyes'
-	check_dt = datetime.datetime(year,month,day)
-	check_dt_s = check_dt.strftime("%Y-%m-%d")
-
-	ahaDB = MYDB('../../link.info')
-	if ahaDB.isRawNewsExist(check_dt_s,source) == True:
-	#if False == True:
-		print "NEXT"
-	else:
-		print "GOGO"
-		ahaDB.insertStartInfo(check_dt_s,source)
-		mainprocess(check_dt)
-		if ahaDB.insertEndInfo(check_dt_s,source) == True:
-			print "GOOD %s"%check_dt
-
-
-
-
-
-	ahaDB.endDB()
-
-'''
 	for item in type_list:
-		print item
-		start_dt =  datetime.datetime(2014,4,23)
-		init_dt = start_dt
-		end_dt = datetime.datetime(2014,6,30)
-		
-		while (start_dt <= end_dt ):
-			start_dt_s = start_dt.strftime("%Y%m%d")
-			end_dt_s = (start_dt+datetime.timedelta(days=6)).strftime("%Y%m%d")
-			
-			#print start_dt
-			#print 'http://news.cnyes.com/tw_bank/sonews_%s%s_1.htm'%(start_dt,end_dt)
-			#print 'http://news.cnyes.com/fx_liveanal/sonews_%s%s_1.htm'%(start_dt_s,start_dt_s)
-			print 'http://news.cnyes.com/%s/sonews_%s%s_1.htm'%(item,start_dt_s,end_dt_s)
-			worker = READSITE('http://news.cnyes.com/%s/sonews_%s%s_1.htm'%(item,start_dt_s,end_dt_s),'../../link.info')
-			if rebuildTable == True:
-				worker.rebuildTable('../../sql/cnYes.sql')
-				rebuildTable = False
-			worker.listLink()
-			start_dt  = start_dt+datetime.timedelta(days=7)
-			#worker.parse()
-'''
+		print 'http://news.cnyes.com/%s/sonews_%s%s_1.htm'%(item,d_s,d_s)
+		worker = READSITE('http://news.cnyes.com/%s/sonews_%s%s_1.htm'%(item,d_s,d_s),'../../link.info')
+		#worker.listLink()
+		worker.getFullNews(d)
+
+
+
