@@ -44,7 +44,7 @@ class MYDB:
 
 	def isRawNewsExist(self,t,s):
 		sql = "SELECT count(*) from crawler_record where data_dt='%s' and source='%s' and end_time is not NULL"%(t,s)
-		print sql
+		#print sql
 		self.cur.execute(sql)
 		rows = self.cur.fetchall()
 		if rows[0][0] >0:
@@ -73,10 +73,21 @@ class MYDB:
 			sql  = "UPDATE crawler_record SET end_time=NOW(),newscount = %d ,process_time = NOW()-start_time, avg_speed = date_trunc('sec',NOW()-start_time)/%d  where data_dt='%s' and source='%s';"%(data_num,data_num,t,s)
 		else:
 			sql = "UPDATE crawler_record SET end_time=NOW(),newscount = %d ,process_time = NOW()-start_time  where data_dt='%s' and source='%s';"%(data_num,t,s)
-		print sql
+		#print sql
 		self.cur.execute(sql)
 		self.conn.commit()
+		#sendtoFB(t,data_num,speed)
+
+
 		return True
+	def sendtoFB(self,year,month,source):
+		sql = "SELECT sum(newscount),sum(extract(epoch from avg_speed))/sum(newscount) from crawler_record where date_trunc('month',data_dt)='%04d-%02d-01' and source='%s';"%(year,month,source)
+		#print sql
+		self.cur.execute(sql)
+		(data_num,speed)  = self.cur.fetchall()[0]
+		sendtoFB("%04d年%02d月"%(year,month),data_num,speed)
+
+
 
 
 
@@ -115,20 +126,6 @@ class READSITE:
 		print '執行重建Table'
 		os.system('psql -d %s -f %s'%(self.database,sql))
 
-	def listLink(self):
-		self.cj = cookielib.CookieJar()
-		self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cj))
-		self.opener.addheaders = [('Host', 'news.cnyes.com')]
-		self.opener.addheaders = [('User-agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.153 Safari/537.36')]
-		r = self.opener.open(self.address)
-		self.content = r.read()		
-		r.close()
-		page = html.fromstring(self.content)
-		#print self.content
-		for link in page.xpath('//*[@id="listArea"]/ul[11]/ul[1]/div/*'):	
-			print link.text
-			print self.address[0:-5]+link.text+".htm"
-			self.readLink(self.address[0:-5]+link.text+".htm")
 
 
 	def getFullNews(self,d):
@@ -147,42 +144,29 @@ class READSITE:
 		url = 'http://news.cnyes.com/Ajax.aspx?Module=GetRollNews'
 		value = urllib.urlencode( {'date' : d.strftime("%Y%m%d")})
 
-		#data = urllib.urlencode(values)
-		#req = urllib2.open(url, value)
 		response = urllib2.build_opener().open(url,value)
 		the_page = response.read()
-		response.close()
-		#print the_page
-
-		#page = html.fromstring(the_page)
-		
+		response.close()		
 		page = etree.parse(StringIO.StringIO(the_page))
-		print len(page.xpath('/NewDataSet/Table1'))
-		#print page
+		total =  len(page.xpath('/NewDataSet/Table1'))
+
 		n = 0 
 		for link in page.xpath('/NewDataSet/Table1'):
 			n += 1
-			print n
+			print "\r%s  [%d /%d](%3.0f%%)"%(d.strftime("%Y-%m-%d"),n,total,n/float(total)*100),
+			sys.stdout.flush()
+  
 			title = link.xpath('./NEWSTITLE')[0].text
-			print "title: %s"%title
 			ll = 'http://news.cnyes.com'+link.xpath('./SNewsSavePath')[0].text
-			print "link: %s"%ll
 			typ = link.xpath('./ClassCName')[0].text
-			print "type: %s"%typ
 			time = d.strftime("%Y-%m-%d")+" "+link.xpath('./NewsTime')[0].text
-			print "time: %s\n\n"%time
 
 			result = self.read(ll)
 			if result != self.EMPTYNEWS:
 				(author,datetime,title,info,fulltext,source) = result
-				#for i in result:
-				#	print i
 				self.insertDB((ll,typ,title,info,fulltext,author,time,source))
-			#except Exception as e:
-			#	print e
-
-
 			#break
+
 		self.cur.close()
 		self.endDB()
 
@@ -191,13 +175,6 @@ class READSITE:
 
 
 
-
-		#r = self.opener.open(self.address)
-
-		#http://news.cnyes.com/Ajax.aspx?Module=GetRollNews
-
-
-		
 
 	def readLink(self,address):
 		#self.cj = cookielib.CookieJar()
@@ -223,64 +200,18 @@ class READSITE:
 
 		data = (self.table,) + data
 		sql = "INSERT INTO %s (link,type,title,info,content,author,datetime,source) VALUES ('%s','%s','%s','%s','%s','%s','%s','%s');"%(data)
-		print sql
-		#寫入要commit才能看見
-		try:
-			self.cur.execute(sql)
-			self.conn.commit()
-		except Exception as e:
-			print e
-
-	def parse(self):
-		page = html.fromstring(self.content)
-
-		i = 0
-		self.startDB()
-
-		self.cur = self.conn.cursor()	
-		for link in page.xpath('//*[@id="container"]//*[@class="list_1 bd_dbottom"]//li/a'):	
-			#try:	
-			if link.text == "下一頁" or link.text =="上一頁":
-				continue
-			#print link.text	
-			#print link.xpath('../span')
-			datatime = link.xpath('../span')[0].text
-			#print "type: "+link.xpath('../strong/a')[0].text
-			#typ = link.xpath('../strong/a')[0].text.translate({ord(i):None for i in '[]'})
-			typ = link.xpath('../strong/a')[0].text[1:-1]
-			#print typ
-			#print "type: %s datatime: %s"%(typ,datatime)
-			i=i+1
-			address = link.get("href")
-			print "%d Name: %s URL: %s"%(i,link.text,address)
-			#補上某些網址不齊
-			if address[0:4] != 'http':				
-				address = 'http://news.cnyes.com'+address
-			#print "address: "+address
-			l = urllib.quote(address.encode('utf-8'),safe=':/?=')		
-			#print "l: "+ l
-			#print "typ:" + typ
-			result = self.read(l,typ)
-			print "result" + result
-			if result != self.EMPTYNEWS:
-				(author,datetime,title,info,fulltext,source) = result
-				for i in result:
-					print i
-
-				self.insertDB((address,typ,title,info,fulltext,author,datetime,source))
-			#except Exception as e:
-			#	print e
+		#print sql
+		#try:
+		self.cur.execute(sql)
+		self.conn.commit()
+		#except Exception as e:
+		#	print e
 
 
-			#break
-		self.cur.close()
-		self.endDB()
-		print "Done! We gather %s news during this execution."% i
-
-
+	#讀入單頁資訊
 	def read(self,address):			
 		#try:
-		print address
+		#print address
 		#r = self.opener.open(address)	
 		r = urllib2.build_opener().open(address)
 
@@ -346,16 +277,51 @@ class READSITE:
 		
 
 def mainprocess(d):
-	#type_list =  ["INDEX","fx_liveanal","macro"]
 	d_s = d.strftime("%Y%m%d")
-	#for item in type_list:
-	#print 'http://news.cnyes.com/%s/sonews_%s%s_1.htm'%(item,d_s,d_s)
 	worker = READSITE('../../link.info')
-	#worker.listLink()
 	worker.getFullNews(d)
 
 
+def sendtoFB(d,num,speed):
+	Title = "完成"
+	Result = "成功"
+	print num
+	print speed
+	Detail = "%s 新聞資料獲得，得到%d筆,每筆約花%.02f秒"%(d,num,speed)
+	api = '688430041191592'; 
+	api_secret = '6bb097ca9fe10f1bca0c1c320232eba2';
+	callback_website = 'https://github.com/ntuaha/TWFS/';
+	picture_url_tick = 'http://www.iconarchive.com/icons/pixelmixer/basic/64/tick-icon.png';
+	facebook_id = '100000185149998';
+	cmd = os.popen("/usr/bin/curl -F grant_type=client_credentials -F client_id=%s -F client_secret=%s -k https://graph.facebook.com/oauth/access_token"%(api,api_secret))
+	k = cmd.read()
+	access_token = k.split("=")[1] 
+	work = "/usr/bin/curl -F 'access_token=%s' -F 'message=%s' -F 'name=%s' -F 'picture=%s' -F 'caption=%s' -k https://graph.facebook.com/%s/feed"%(access_token,Detail,Title,picture_url_tick,Result,facebook_id)
+	#print work
+	cmd = os.popen(work)
 
+
+
+def runCrawler(year,month,day,signal):
+	source = 'cnyes'
+	check_dt = datetime.datetime(year,month,day)
+	check_dt_s = check_dt.strftime("%Y-%m-%d")
+
+	
+	if ahaDB.isRawNewsExist(check_dt_s,source) == True:
+	#if False == True:
+		#print "NEXT"
+		pass
+	else:
+		#print "GOGO"
+		ahaDB.insertStartInfo(check_dt_s,source)
+		mainprocess(check_dt)
+		if ahaDB.insertEndInfo(check_dt_s,source) == True:
+			#print "GOOD %s"%check_dt
+			if signal==True:
+				ahaDB.sendtoFB(year,month,source)
+			else:
+				pass
 
 
 if __name__ == '__main__':
@@ -367,28 +333,25 @@ if __name__ == '__main__':
 	rebuildTable = False
 
 # 確認時間
-	year = 2014
-	month = 3
-	day = 2
-	source = 'cnyes'
-	check_dt = datetime.datetime(year,month,day)
-	check_dt_s = check_dt.strftime("%Y-%m-%d")
-
 	ahaDB = MYDB('../../link.info')
-	if ahaDB.isRawNewsExist(check_dt_s,source) == True:
-	#if False == True:
-		print "NEXT"
-	else:
-		print "GOGO"
-		ahaDB.insertStartInfo(check_dt_s,source)
-		mainprocess(check_dt)
-		if ahaDB.insertEndInfo(check_dt_s,source) == True:
-			print "GOOD %s"%check_dt
+	start_dt = datetime.datetime(2014,07,01)
+	init = start_dt
+	e = datetime.date.today() - datetime.timedelta(days=1)
+	end_dt = datetime.datetime(int(e.strftime("%Y")),int(e.strftime("%m")),int(e.strftime("%d")))
+	#print end_dt.strftime("%Y-%m-%d")
+	#end_dt = datetime.datetime(2014,07,26)
+	sendFinalSignal = False
+	while init<=end_dt:
+	#while 2<1:
+		if init==end_dt:
+			sendFinalSignal=True
+			#pass
 
-
-
-
-
+		year = int(init.strftime("%Y"))
+		month = int(init.strftime("%m"))
+		day = int(init.strftime("%d"))
+		runCrawler(year,month,day,sendFinalSignal)
+		init = init + datetime.timedelta(days=1)
 	ahaDB.endDB()
 
 '''
