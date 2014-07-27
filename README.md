@@ -3,6 +3,20 @@ NewsInsight
 
 尋找新聞中間隱藏的訊息
 
+
+## 資料處理流程
+
+0. 有沒有上一天的資訊，沒有進行 step 1, 或者用直接給定的時間
+1. 確認抓到哪一天     啟動時間   結束時間   總新聞數   抓取新聞數量   平均一筆新聞
+2. 確認要抓哪一天
+3. 清除要抓的那一天的資訊
+4. 讀取那一天的頁碼數
+5. 開始抓
+6. 結束當天
+7. 完成五天post to Facebook
+
+
+
 ## 執行流程
 
 
@@ -23,6 +37,10 @@ NewsInsight
 	$ psql -d library -f ./sql/feature.sql
 	$ psql -d library -f ./sql/findfeature.sql
 	```	
+
+
+
+
 
 ## 資料格式
 
