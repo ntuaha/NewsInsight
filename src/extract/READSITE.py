@@ -69,6 +69,8 @@ class READSITE:
 		
 		self.startDB()
 		self.cur = self.conn.cursor()	
+		# History Page's example
+		# http://news.cnyes.com/rollnews/2014-07-01.htm
 
 		url = 'http://news.cnyes.com/Ajax.aspx?Module=GetRollNews'
 		value = urllib.urlencode( {'date' : d.strftime("%Y%m%d")})
@@ -139,12 +141,11 @@ class READSITE:
 
 	#讀入單頁資訊
 	def read(self,address):			
-		#try:
-		#print address
-		#r = self.opener.open(address)	
-		r = urllib2.build_opener().open(address)
-
-
+		try:
+			r = urllib2.build_opener().open(address)
+		except urllib2.URLError:
+			print "URLError=>address: %s"%address
+			return self.EMPTYNEWS
 
 		page = html.fromstring(r.read().decode('utf-8'))				
 		r.close()
@@ -195,11 +196,6 @@ class READSITE:
 			if a.text is not None:
 				text.append(a.text)
 		fulltext = "\n".join(text).replace(u"'", u"''")
-	#	print fulltext
-		#print "title:%s\n gg:%s\n article:\n%s\n"%(title,info,fulltext)
-		#print "\n\n\n"
 
-		#return infromation in the page
+
 		return (author,datetime,title,info,fulltext,source)
-		#except Exception as e:
-		#	print e

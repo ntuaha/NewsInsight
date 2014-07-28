@@ -68,7 +68,8 @@ if __name__ == '__main__':
 # 確認時間
 	ahaDB = MYDB('../../link.info')
 	start_dt = datetime.datetime(2014,06,01)
-	end_dt = datetime.datetime(2014,07,01)- datetime.timedelta(days=1)
+	#end_dt = datetime.datetime(2014,07,01)- datetime.timedelta(days=1)
+	end_dt = datetime.datetime(2014,06,01)
 	init = start_dt
 	#e = datetime.date.today() - datetime.timedelta(days=1)
 	#end_dt = datetime.datetime(int(e.strftime("%Y")),int(e.strftime("%m")),int(e.strftime("%d")))

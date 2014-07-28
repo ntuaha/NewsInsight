@@ -86,11 +86,12 @@ class MYDB:
 		#print sql
 		self.cur.execute(sql)
 		(data_num,speed)  = self.cur.fetchall()[0]
-		sendtoFB("%04d年%02d月"%(year,month),data_num,speed)
+		self.sendtoFB2("%04d年%02d月"%(year,month),data_num,speed)
+		print "GO"
 
 
 
-	def sendtoFB(self,d,num,speed):
+	def sendtoFB2(self,d,num,speed):
 		Title = "完成"
 		Result = "成功"
 		print num
