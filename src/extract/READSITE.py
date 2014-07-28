@@ -84,6 +84,8 @@ class READSITE:
 		n = 0 
 		for link in page.xpath('/NewDataSet/Table1'):
 			n += 1
+			#if n<=2010:
+			#	continue
 			print "\r%s  [%d /%d](%3.0f%%)"%(d.strftime("%Y-%m-%d"),n,total,n/float(total)*100),
 			sys.stdout.flush()
   
@@ -94,7 +96,7 @@ class READSITE:
 
 			result = self.read(ll)
 			if result != self.EMPTYNEWS:
-				(author,datetime,title,info,fulltext,source) = result
+				(author,datetime,title2,info,fulltext,source) = result
 				self.insertDB((ll,typ,title,info,fulltext,author,time,source))
 			#break
 

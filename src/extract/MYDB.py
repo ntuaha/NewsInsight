@@ -80,9 +80,9 @@ class MYDB:
 		return True
 
 
-
+#SELECT sum(newscount),sum(extract(epoch from process_time))/sum(newscount) from crawler_record where date_trunc('month',data_dt)='2014-06-01' and source='cnyes';
 	def sendtoFB(self,year,month,source):
-		sql = "SELECT sum(newscount),sum(extract(epoch from avg_speed))/sum(newscount) from crawler_record where date_trunc('month',data_dt)='%04d-%02d-01' and source='%s';"%(year,month,source)
+		sql = "SELECT sum(newscount),sum(extract(epoch from process_time))/sum(newscount) from crawler_record where date_trunc('month',data_dt)='%04d-%02d-01' and source='%s';"%(year,month,source)
 		#print sql
 		self.cur.execute(sql)
 		(data_num,speed)  = self.cur.fetchall()[0]
