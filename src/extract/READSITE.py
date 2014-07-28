@@ -87,7 +87,7 @@ class READSITE:
 			print "\r%s  [%d /%d](%3.0f%%)"%(d.strftime("%Y-%m-%d"),n,total,n/float(total)*100),
 			sys.stdout.flush()
   
-			title = link.xpath('./NEWSTITLE')[0].text
+			title = link.xpath('./NEWSTITLE')[0].text.replace(u"'", u"''")
 			ll = 'http://news.cnyes.com'+link.xpath('./SNewsSavePath')[0].text
 			typ = link.xpath('./ClassCName')[0].text
 			time = d.strftime("%Y-%m-%d")+" "+link.xpath('./NewsTime')[0].text
