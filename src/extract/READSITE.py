@@ -84,12 +84,16 @@ class READSITE:
 		n = 0 
 		for link in page.xpath('/NewDataSet/Table1'):
 			n += 1
-			#if n<=2010:
+			#if n<=1236:
 			#	continue
 			print "\r%s  [%d /%d](%3.0f%%)"%(d.strftime("%Y-%m-%d"),n,total,n/float(total)*100),
 			sys.stdout.flush()
-  
-			title = link.xpath('./NEWSTITLE')[0].text.replace(u"'", u"''")
+  			#print str(etree.dump(link))
+  			title_obj = link.xpath('./NEWSTITLE')[0].text
+  			if title_obj is None:
+  				continue
+  			else:
+				title = title_obj.replace(u"'", u"''")
 			ll = 'http://news.cnyes.com'+link.xpath('./SNewsSavePath')[0].text
 			typ = link.xpath('./ClassCName')[0].text
 			time = d.strftime("%Y-%m-%d")+" "+link.xpath('./NewsTime')[0].text
