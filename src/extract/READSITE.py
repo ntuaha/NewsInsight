@@ -78,7 +78,8 @@ class READSITE:
 
 		url = 'http://news.cnyes.com/Ajax.aspx?Module=GetRollNews'
 		value = urllib.urlencode( {'date' : d.strftime("%Y%m%d")})
-
+		#print url
+		#print value
 		response = urllib2.build_opener().open(url,value)
 		the_page = response.read()
 		response.close()		
@@ -111,9 +112,16 @@ class READSITE:
 				except SocketError as e:
 					if e.errno != errno.ECONNRESET:
 						raise # Not error we are looking for
-					print "RERUN"
+					print "SocketError=>RERUN"
 					rerun = True
 					tt.sleep(0.5)
+				except UnicodeDecodeError as e:  #也許是被刻意丟錯誤字詞					
+					print "UnicodeDecodeError=>PASS"
+					rerun = False
+					#rerun = True
+					#tt.sleep(30)
+
+
 
 
 			
