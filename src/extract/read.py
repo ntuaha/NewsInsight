@@ -38,24 +38,29 @@ def runCrawler(year,month,day,signal):
 	source = 'cnyes'
 	check_dt = datetime.datetime(year,month,day)
 	check_dt_s = check_dt.strftime("%Y-%m-%d")
-
 	
 	if ahaDB.isRawNewsExist(check_dt_s,source) == True:
 	#if False == True:
 		#print "NEXT"
-		print "%s 已完成"%check_dt_s
+		print "%s 已完成 在%s"%(check_dt_s,datetime.datetime.now())
 		#pass
 	else:
 		#print "GOGO"
 		ahaDB.insertStartInfo(check_dt_s,source)
 		mainprocess(check_dt)
 		if ahaDB.insertEndInfo(check_dt_s,source) == True:
-			print " ====> %s 完成"%check_dt
+			print " ====> %s 完成 在%s"%(check_dt,datetime.datetime.now())
 			if signal==True:
 				ahaDB.sendtoFB(year,month,source)
 			else:
 				pass
-
+def parseArgv(values):
+	if len(values[1])<8 or len(values[2])<8:
+		raise Exception("argc are invalid.")
+	a = datetime.datetime(int(values[1][0:4]),int(values[1][4:6]),int(values[1][6:8]))
+	b = datetime.datetime(int(values[2][0:4]),int(values[2][4:6]),int(values[2][6:8]))
+	print "Start:%s End:%s"%(a,b)
+	return (a,b)
 
 if __name__ == '__main__':
 	#http://news.cnyes.com/tw_bank/sonews_2014010120140708_1.htm
@@ -67,8 +72,9 @@ if __name__ == '__main__':
 
 # 確認時間
 	ahaDB = MYDB('../../link.info')
-	start_dt = datetime.datetime(2013,01,01)
-	end_dt = datetime.datetime(2014,01,01)- datetime.timedelta(days=1)
+	#start_dt = datetime.datetime(2013,01,01)
+	#end_dt = datetime.datetime(2014,01,01)- datetime.timedelta(days=1)
+	(start_dt,end_dt) = parseArgv(sys.argv)
 	#end_dt = datetime.datetime(2014,06,01)
 	init = start_dt
 	#e = datetime.date.today() - datetime.timedelta(days=1)
