@@ -19,40 +19,21 @@ import StringIO
 import time as tt
 from socket import error as SocketError
 import errno
-
+from DB_NOW import DB_NOW
 
 
 reload(sys) 
 sys.setdefaultencoding('utf8') 
 
 
-
-
-
 class READSITE:
-	content = None
-	cj = None
-	opener = None
-
-	database=""
-	user=""
-	password=""
-	host=""
-	port=""
-	conn = None
-	table = "cnyes"
-	cur = None
+	db = None
 	EMPTYNEWS = ("","","","","","")
 
 
-	def __init__(self,filepath):
-		f = open(filepath,'r')
-		self.database = f.readline()[:-1]
-		self.user = f.readline()[:-1]
-		self.password = f.readline()[:-1]
-		self.host = f.readline()[:-1]
-		self.port =f.readline()[:-1]
-		f.close()
+	def __init__(self,db):
+		self.db = db
+
 
 	#建立更新資料庫
 	def rebuildTable(self,sql):
@@ -61,18 +42,8 @@ class READSITE:
 
 
 
-	def getFullNews(self,d):
-		#self.cj = cookielib.CookieJar()
-		#self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cj))
-		#self.opener.addheaders = [('Host', 'news.cnyes.com')]
-		#self.opener.addheaders = [('User-agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.153 Safari/537.36')]
-
-
-
-
-		
-		self.startDB()
-		self.cur = self.conn.cursor()	
+	def getFullNewsList(self,d):
+		self.db.startDB()
 		# History Page's example
 		# http://news.cnyes.com/rollnews/2014-07-01.htm
 
@@ -95,19 +66,19 @@ class READSITE:
 			#	continue
 			print "\r%s  [%d /%d](%3.0f%%)"%(d.strftime("%Y-%m-%d"),n,total,n/float(total)*100),
 			sys.stdout.flush()
-  			#print str(etree.dump(link))
+
   			title_obj = link.xpath('./NEWSTITLE')[0].text
   			if title_obj is None:
   				continue
-  			else:
-				title = title_obj.replace(u"'", u"''")
+  			
+			title = title_obj.replace(u"'", u"''")
 			ll = 'http://news.cnyes.com'+link.xpath('./SNewsSavePath')[0].text
 			typ = link.xpath('./ClassCName')[0].text
 			time = d.strftime("%Y-%m-%d")+" "+link.xpath('./NewsTime')[0].text
 			rerun = True
 			while(rerun):
 				try:
-					result = self.read(ll)
+					result = self.getDetailNews(ll)
 					rerun = False
 				except SocketError as e:
 					if e.errno != errno.ECONNRESET:
@@ -118,8 +89,6 @@ class READSITE:
 				except UnicodeDecodeError as e:  #也許是被刻意丟錯誤字詞					
 					print "UnicodeDecodeError=>PASS"
 					rerun = False
-					#rerun = True
-					#tt.sleep(30)
 
 
 
@@ -127,57 +96,20 @@ class READSITE:
 			
 			if result != self.EMPTYNEWS:
 				(author,datetime,title2,info,fulltext,source) = result
-				self.insertDB((ll,typ,title,info,fulltext,author,time,source))
+				self.db.insertNewsDB((ll,typ,title,info,fulltext,author,time,source))
 			#break
 
-		self.cur.close()
-		self.endDB()
 
-
-
-
-
-
-
-	def readLink(self,address):
-		#self.cj = cookielib.CookieJar()
-		#self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cj))
-		#self.opener.addheaders = [('Host', 'news.cnyes.com')]
-		#self.opener.addheaders = [('User-agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.153 Safari/537.36')]
-		print address
-		r = self.opener.open(address)
-		self.content = r.read()		
-		r.close()
-		self.parse()
-
-
-	#啟用DB
-	def startDB(self):
-		self.conn = psycopg2.connect(database=self.database, user=self.user, password=self.password, host=self.host, port=self.port)
-
-	#結束DB
-	def endDB(self):	
-		self.conn.close()
-
-	def insertDB(self,data):
-
-		data = (self.table,) + data
-		sql = "INSERT INTO %s (link,type,title,info,content,author,datetime,source) VALUES ('%s','%s','%s','%s','%s','%s','%s','%s');"%(data)
-		#print sql
-		#try:
-		self.cur.execute(sql)
-		self.conn.commit()
-		#except Exception as e:
-		#	print e
 
 
 	#讀入單頁資訊
-	def read(self,address):			
+	def getDetailNews(self,address):			
 		try:
 			r = urllib2.build_opener().open(address)
 		except urllib2.URLError:
 			print "URLError=>address: %s"%address
 			return self.EMPTYNEWS
+
 		try:
 			page = html.fromstring(r.read().decode('utf-8'))				
 			r.close()
