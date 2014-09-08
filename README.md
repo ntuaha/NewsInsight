@@ -12,8 +12,7 @@ NewsInsight
 3. 清除要抓的那一天的資訊
 4. 讀取那一天的頁碼數
 5. 開始抓
-6. 結束當天
-7. 完成五天post to Facebook
+6. 結束當天對應的當月資訊發佈在Facebook
 
 
 
@@ -29,7 +28,7 @@ NewsInsight
 1. 建立資料表，讀入新聞資訊
 
 	```bash
-	$ python ./src/extract/read.py 
+	$ python ./src/extract/read.py [起頭日期8碼] [結束日期8碼]
 	```
 2. 建立資料表，準備做分析資料表,可已經擁有特定字詞的字串寫入
 
@@ -38,7 +37,11 @@ NewsInsight
 	$ psql -d library -f ./sql/findfeature.sql
 	```	
 
+3. 將新聞資料做備份
 
+	```bash
+	$ python ../../src/backup/backup.py 
+	```
 
 
 
