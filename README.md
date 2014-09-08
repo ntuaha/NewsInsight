@@ -37,7 +37,11 @@ NewsInsight
 	$ psql -d library -f ./sql/findfeature.sql
 	```	
 
+3. 將新聞資料做備份
 
+	```bash
+	$ python ../../src/backup/backup.py 
+	```
 
 
 
