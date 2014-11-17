@@ -9,16 +9,11 @@ import sys
 import os
 import psycopg2
 import datetime
-#import calendar
-#import csv
-#import math
-#from time import mktime as mktime
 import cookielib, urllib2,urllib
 from lxml import html,etree
 import StringIO
 
 #自己的libaray
-#from MYDB import *
 from DB_NOW import DB_NOW
 from READSITE import READSITE
 
@@ -63,8 +58,9 @@ if __name__ == '__main__':
 
 # 確認時間
 
-	ahaDB = DB_NOW(os.path.dirname(__file__)+'../../link.info')
+	ahaDB = DB_NOW(os.path.dirname(__file__)+'/../../link.info')
 	ahaDB.setTable("cnyes")
+	#20141001 20141031
 	(start_dt,end_dt) = parseArgv(sys.argv)
 
 	init = start_dt
