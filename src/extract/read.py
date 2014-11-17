@@ -1,11 +1,11 @@
-# -*- coding: utf-8 -*- 
+# -*- coding: utf-8 -*-
 
 
 
 import re
 
 #處理掉unicode 和 str 在ascii上的問題
-import sys 
+import sys
 import os
 import psycopg2
 import datetime
@@ -22,13 +22,13 @@ import StringIO
 from DB_NOW import DB_NOW
 from READSITE import READSITE
 
-reload(sys) 
-sys.setdefaultencoding('utf8') 
+reload(sys)
+sys.setdefaultencoding('utf8')
 
 
 
 
-def runCrawler(year,month,day,signal):	
+def runCrawler(year,month,day,signal):
 	if ahaDB.isRawNewsExist(year,month,day) == True:
 		print "%s 已完成 在%s"%(ahaDB.date_s,datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 		return False
@@ -62,7 +62,8 @@ if __name__ == '__main__':
 	rebuildTable = False
 
 # 確認時間
-	ahaDB = DB_NOW('../../link.info')
+
+	ahaDB = DB_NOW(os.path.dirname(__file__)+'../../link.info')
 	ahaDB.setTable("cnyes")
 	(start_dt,end_dt) = parseArgv(sys.argv)
 
