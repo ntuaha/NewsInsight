@@ -146,7 +146,7 @@ class READSITE:
 		elif re.match(u".+記者(\w+)\W+.+",info,re.U) is not None:
 			author = re.match(u".+記者(\w+)\W+.+",info,re.U).group(1)
 		elif re.match(u".+編譯(\w+)\W+.+",info,re.U) is not None:
-			author = re.match(u".+網編譯(\w+)\W+.+",info,re.U).group(1)
+			author = re.match(u".+編譯(\w+)\W+.+",info,re.U).group(1)
 		elif re.match(u"鉅亨網(\w+)\W+.+",info,re.U) is not None:
 			author = re.match(u"鉅亨網(\w+)\W+.+",info,re.U).group(1)
 		elif re.match(u"(\w+)\W+.+",info,re.U) is not None:
