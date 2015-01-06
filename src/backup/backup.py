@@ -25,16 +25,16 @@ if __name__ =="__main__":
 	backup_path = '/home/aha/Project/NewsInsight/data/backup'
 	sql_file = '/home/aha/Project/NewsInsight/sql/backup.sql'
 	f = open(sql_file,'w+')
-	for year in range(2012,2015):
-		for month in range(1,13):
+	for year in range(2014,2015):
+		for month in range(7,13):
 			#line = "\copy (select * from cnyes where date_trunc('month',datetime)='%04d-%02d-01') to '%s/%04d%02d.csv' WITH CSV HEADER;"%(year,month,backup_path,year,month)
 			line = "\copy (select * from cnyes where date_trunc('month',datetime)='%04d-%02d-01') to '%s/%04d%02d.csv' WITH CSV HEADER;\n"%(year,month,backup_path,year,month)
 			f.write(line)
 	f.close()
 	#Copy (Select * From foo) To '/tmp/test.csv' With CSV;
 	os.system("psql  -d newsinsight  -f %s"%sql_file)
-	for year in range(2012,2015):
-		for month in range(1,13):
+	for year in range(2014,2015):
+		for month in range(7,13):
 			line = "zip -j %s/%04d%02d.zip %s/%04d%02d.csv;rm %s/%04d%02d.csv"%(backup_path,year,month,backup_path,year,month,backup_path,year,month)
 			os.system(line)
 
