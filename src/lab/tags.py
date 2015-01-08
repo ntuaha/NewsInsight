@@ -16,7 +16,7 @@ import jieba.analyse
 class DB:
 
   def __init__(self):
-    f = open('./link.info','r')
+    f = open('/home/aha/Project/NewsInsight/src/lab/link.info','r')
     database = f.readline()[:-1]
     user = f.readline()[:-1]
     password = f.readline()[:-1]
@@ -48,10 +48,10 @@ class DB:
 class NEWS_ANALYSE:
   TAG_SIZE = 20
   def __init__(self):
-    jieba.set_dictionary('./dict/dict.txt.big')
-    jieba.load_userdict("./dict/user_dict.txt")
-    jieba.analyse.set_stop_words("./dict/user_stop_words.txt")
-    jieba.analyse.set_idf_path("./dict/idf.txt.big")
+    jieba.set_dictionary('/home/aha/Project/NewsInsight/src/lab/dict/dict.txt.big')
+    jieba.load_userdict("/home/aha/Project/NewsInsight/src/lab/dict/user_dict.txt")
+    jieba.analyse.set_stop_words("/home/aha/Project/NewsInsight/src/lab/dict/user_stop_words.txt")
+    jieba.analyse.set_idf_path("/home/aha/Project/NewsInsight/src/lab/dict/idf.txt.big")
 
   def extractTag(self,s):
     #print "Input：", s
@@ -66,8 +66,10 @@ if __name__=="__main__":
     #[year,month,day] = map(int,sys.argv[1:4])
   #except e:
   # raise '請輸入正確數值'
-  #get_time = datetime.datetime(year,month,day)
-  get_time = datetime.datetime.now().strftime('%Y-%m-%d')
+  now = datetime.datetime.now()
+  [year,month,day] = [now.year,now.month,now.day]
+  get_time = datetime.datetime(year,month,day)
+  #get_time = datetime.datetime.now().strftime('%Y-%m-%d')
   current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
   db = DB()
