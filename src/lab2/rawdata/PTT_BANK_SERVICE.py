@@ -15,8 +15,8 @@ from PTT import PTT_DB,PTT
 
 
 if __name__ =="__main__":
-  ptt = PTT('https://www.ptt.cc/bbs/Loan/index.html')
-  db = PTT_DB(os.path.dirname(__file__)+"/mongodb.inf","loan")
+  ptt = PTT('https://www.ptt.cc/bbs/Bank_Service/index.html')
+  db = PTT_DB(os.path.dirname(__file__)+"/mongodb.inf","bank_serv ice")
   now = datetime.datetime.now()
   t = datetime.datetime(now.year,now.month,now.day) - datetime.timedelta(days=1)
   print t
