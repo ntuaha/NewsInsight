@@ -10,6 +10,7 @@ import lxml
 import StringIO
 import datetime
 import json
+import time
 #處理掉unicode 和 str 在ascii上的問題
 reload(sys)
 sys.setdefaultencoding('utf8')
@@ -18,21 +19,28 @@ from pymongo import ASCENDING, DESCENDING
 #aha's library
 from WEB import WEB
 from RAW_DB import RAW_DB
+#print error stack
+import traceback
 
 
 
 class PTT_DB(RAW_DB):
   db = "ptt"
-  #table = "foreign_ex"
+
   def __init__(self,path,table):
     RAW_DB.__init__(self,path,self.db)
     self.table = self.db[table]
+    self.table_name = table
 
   def isExistNews(self,record):
     if self.table.find({'link':record['link']}).count()>0:
       return True
     else:
       return False
+
+  def insertNews(self,news):
+    result = self.table.replace_one({'link':news['link']},news,upsert=True)
+    return result
 
   def bulkInsertNews(self,news):
     insert_data = []
@@ -48,8 +56,9 @@ class PTT_DB(RAW_DB):
       #Build index
       self.table.create_index([("link", DESCENDING), ("Title", ASCENDING)])
     #Insert to LOG
-    self.db["log"].insert({"crawler_dt":datetime.datetime.now(),"modified_record":count,"source":"ptt_loan"})
+    self.db["log"].insert({"crawler_dt":datetime.datetime.now(),"modified_record":count,"source":"ptt_%s"%self.table_name})
     return count
+
 
 
 class PTT:
@@ -75,7 +84,7 @@ class PTT:
     # 抓指定位置的連結
 
     link = root.xpath(u".//div[contains(@class, 'btn-group pull-right')]//a[contains(text(),'‹ 上頁')]/@href")
-    if link is not None:
+    if link is not None and len(link)>0:
       return [root.xpath(".//*[contains(@class, 'r-ent')]"),"https://www.ptt.cc"+link[0]]
     else:
       return [root.xpath(".//*[contains(@class, 'r-ent')]"),None]
@@ -113,7 +122,15 @@ class PTT:
         year = datetime.datetime.now().year-1
       else:
         year = datetime.datetime.now().year
-      datum['date'] = datetime.datetime(year,month,day)
+      try:
+        datum['date'] = datetime.datetime(year,month,day)
+      except ValueError:
+        #如果date抓不到只好用link 資訊
+        print datum['link']
+        m = re.search(u"[A-Z]\.([0-9]{10}).[A-Z]",datum['link'],re.U)
+        d = datetime.datetime.fromtimestamp(int(m.group(1).strip()))
+        datum['date'] = datetime.datetime(d.year,d.month,d.day)
+
       datum['author'] = row.xpath(".//*[contains(@class, 'author')]")[0].text.strip()
 
       nrec = row.xpath(".//*[contains(@class, 'nrec')]/span//text()")
@@ -146,14 +163,19 @@ class PTT:
           datum['author'] = m.group(1).strip()
           datum['mood'] = m.group(2).strip()
 
-      #article time
+      #article time  - 文章時間
       temp = root.xpath(u'.//div[@class="article-metaline" and span[@class="article-meta-tag"]="時間"]/span[@class="article-meta-value"]/text()')
       datum['edittime'] = []
       if len(temp)>0:
-        datum['edittime'].append(datetime.datetime.strptime(temp[0].strip(),'%a %b %d %H:%M:%S %Y'))
+        try:
+          datum['edittime'].append(datetime.datetime.strptime(temp[0].strip(),'%a %b %d %H:%M:%S %Y'))
+        except ValueError:
+          m = re.search(u"[A-Z]\.([0-9]{10}).[A-Z]",url,re.U)
+          datum['edittime'].append(datetime.datetime.fromtimestamp( int( m.group(1).strip() ) ))
 
 
-      #push
+
+      #push - 推文處理
       pushs = root.xpath(".//div[@class='push']")
       datum['pushs'] = []
       if pushs is not None:
@@ -176,8 +198,12 @@ class PTT:
           ipdatetime = push.xpath('.//span[contains(@class,"push-ipdatetime")]//text()')[0].strip()
           # push-time
           m = re.match(u"(\d{2}/\d{2} \d{2}:\d{2})",ipdatetime,re.U)
-          if m is not None:
-            p['time'] = datetime.datetime.strptime(m.group(1),'%m/%d %H:%M')
+          try:
+            if m is not None:
+              p['time'] = datetime.datetime.strptime(m.group(1),'%m/%d %H:%M')
+          except ValueError:
+            m = re.search(u"[A-Z]\.([0-9]{10}).[A-Z]",url,re.U)
+            datum['time'] = datetime.datetime.fromtimestamp(int(m.group(1).strip()))
           # push-ip
           m = re.match(u"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})",ipdatetime,re.U)
           if m is not None:
@@ -240,6 +266,54 @@ class PTT:
 
       return datum
 
+  def crawlData(self,time,limit,table,url):
+    db = PTT_DB(os.path.dirname(__file__)+"/mongodb.inf",table)
+    #url = self.init_link
+    jump = False
+    count = 0
+    page = 0
+    while 1:
+      try:
+        links,url = self.fetchListPage(url)
+        if url is None:
+          break
+        print "url: "+url
+        i = 0
+        for l in links:
+          i = i+1
+          count = count+1
+          #太早的新聞出現
+          print "read # of page: %d"%page
+          if i==1 and l['date'] <time and page>0:
+            print i
+            print l['date']
+            print time
+            print page
+            jump = True
+          else:
+            #容許錯誤一次
+            try:
+              d = self.fetchContent(l['link'])
+            except urllib2.URLError:
+              try:
+                d = self.fetchContent(l['link'])
+              except:
+                continue
+            for key,value in d.iteritems():
+              l[key] = value
+  #            print "%s,%s"%(key,value)
+            #total_links.append(l)
+            db.insertNews(l)
+        #提早終止或者是超過數量上線？
+        if jump == True or (limit>0 and count>=limit):
+          break
+        else:
+          page = page+1
+      except urllib2.HTTPError:
+        print "urllib2.HTTPError"
+        traceback.print_exc()
+    db.close()
+    return (False,url)
 
   def fetchData(self,time,limit=0):
     total_links = []

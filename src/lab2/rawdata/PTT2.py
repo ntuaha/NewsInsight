@@ -18,7 +18,8 @@ if __name__ =="__main__":
   ptt = PTT('https://www.ptt.cc/bbs/Bank_Service/index.html')
   db = PTT_DB(os.path.dirname(__file__)+"/mongodb.inf","bank_service")
   now = datetime.datetime.now()
-  t = datetime.datetime(now.year,now.month,now.day) - datetime.timedelta(days=1)
+  #t = datetime.datetime(now.year,now.month,now.day) - datetime.timedelta(days=1)
+  t = datetime.datetime(2014,6,1)
   print t
   if len(sys.argv)>1:
     limit = int(sys.argv[1])
